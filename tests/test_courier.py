@@ -3,14 +3,14 @@ import pytest
 
 from api.courier_api import CreateCourierAPI as CCA, LoginCourierAPI as LCA
 from data.courier_data import DataCreateCourier as DCR, DataLoginCourier as DLC
-
+import helper as h
 
 class TestCourierCreate:
     @allure.title('Успешное создание курьера')
     @allure.description('Проверка создания курьера')
-    def test_create_courier_success(self, generate_random_word):
+    def test_create_courier_success(self, delete_courier_after_test):
         with allure.step('Генерация данных'):
-            test_data = generate_random_word()
+            test_data = h.generate_random_word(10)
 
             payload = {
                 "login": test_data[0],
@@ -42,53 +42,34 @@ class TestCourierCreate:
 
     @allure.title('Попытка создания одинаковых курьеров')
     @allure.description('Попытка создания одинаковых курьеров')
-    def test_create_duplicate_courier_error(self, generate_random_word):
-        with allure.step('Генерация данных'):
-            test_data = generate_random_word()
+    def test_create_duplicate_courier_error(self, register_new_courier_and_return_login_password):
+        existing_courier = register_new_courier_and_return_login_password
+        login = existing_courier[0]
+        password = existing_courier[1]
+        first_name = existing_courier[2]
 
-            payload = {
-                "login": test_data[0],
-                "password": test_data[1],
-                "firstName": test_data[2]
-            }
-            allure.attach(str(payload), "Данные курьера", allure.attachment_type.JSON)
-
-        with allure.step('Выполнение POST запроса к /api/v1/courier'):
+        with allure.step('Выполнение POST запроса с дублирующим логином'):
             courier_api = CCA()
-            first_response  = courier_api.create_courier(payload['login'], payload['password'], payload['firstName'])
+            response = courier_api.create_courier(login, password, first_name)
+
             allure.attach(
-                f"Метод: POST\nURL: /api/v1/courier\nТело: {payload}",
+                f"Метод: POST\nURL: /api/v1/courier\nТело: {{'login': '{login}', 'password': '{password}', 'firstName': '{first_name}'}}",
                 "Запрос",
                 allure.attachment_type.TEXT
             )
             allure.attach(
-                f"Статус: {first_response.status_code}\nТело: {first_response.text}",
+                f"Статус: {response.status_code}\nТело: {response.text}",
                 "Ответ",
                 allure.attachment_type.TEXT
             )
 
         with allure.step("Проверка статус кода ответа"):
-            assert first_response.status_code == 201
+            assert response.status_code == 409, \
+                f"Ожидался статус 409, получен {response.status_code}"
 
-        with allure.step('Повторное выполнение POST запроса к /api/v1/courier'):
-            second_response = courier_api.create_courier(payload['login'], payload['password'], payload['firstName'])
-            allure.attach(
-                f"Метод: POST\nURL: /api/v1/courier\nТело: {payload}",
-                "Запрос",
-                allure.attachment_type.TEXT
-            )
-            allure.attach(
-                f"Статус: {second_response.status_code}\nТело: {second_response.text}",
-                "Ответ",
-                allure.attachment_type.TEXT
-            )
-
-        with allure.step("Проверка статус кода ответа"):
-            assert second_response.status_code == 409, \
-                f"Expected 409, got {second_response.status_code}"
-
-        with allure.step("Проверка тела ответа"):
-            assert second_response.json()["message"] == "Этот логин уже используется. Попробуйте другой."
+        with allure.step("Проверка сообщения об ошибке"):
+            assert response.json()["message"] == "Этот логин уже используется. Попробуйте другой.", \
+                f"Ожидалось сообщение 'Этот логин уже используется. Попробуйте другой.', получено '{response.json().get('message')}'"
 
 
     @allure.title('Попытка создания курьера при потере одного параметра')
@@ -185,9 +166,9 @@ class TestLoginCourier:
 
     @allure.title('Попытка авторизации незарегистрированного курьера')
     @allure.description('Попытка авторизации незарегистрированного курьера')
-    def test_login_courier_not_register_error(self, generate_random_word):
+    def test_login_courier_not_register_error(self, delete_courier_after_test):
         with allure.step('Успешное создание нового курьера'):
-            test_data = generate_random_word()
+            test_data = h.generate_random_word(10)
             allure.attach(f'Данные курьера {test_data}', "Данные созданного курьера", allure.attachment_type.TEXT)
 
         with allure.step('Выполнение POST запроса к /api/v1/courier/login'):
