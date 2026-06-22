@@ -2,25 +2,14 @@ import string
 import random
 import pytest
 import requests
-
-
-@pytest.fixture
-def generate_random_word():
-    def _generate_random_string(length=10):
-        letters = string.ascii_lowercase
-        random_login = ''.join(random.choice(letters) for i in range(length))
-        random_password = ''.join(random.choice(letters) for i in range(length))
-        random_first_name = ''.join(random.choice(letters) for i in range(length))
-        return random_login, random_password, random_first_name
-    return _generate_random_string
+import urls
 
 
 @pytest.fixture
 def register_new_courier_and_return_login_password():
     def generate_random_string(length):
         letters = string.ascii_lowercase
-        random_string = ''.join(random.choice(letters) for i in range(length))
-        return random_string
+        return ''.join(random.choice(letters) for i in range(length))
 
     login = generate_random_string(10)
     password = generate_random_string(10)
@@ -32,9 +21,67 @@ def register_new_courier_and_return_login_password():
         "firstName": first_name
     }
 
-    response = requests.post('https://qa-scooter.education-services.ru/api/v1/courier', json=payload)
+    create_response = requests.post(
+        f"{urls.base_url}{urls.create_courier_endpoint}",
+        json=payload
+    )
 
-    if response.status_code == 201:
-        return [login, password, first_name]
+    if create_response.status_code != 201:
+        pytest.fail(f"Не удалось создать курьера! Статус: {create_response.status_code}, Ответ: {create_response.text}")
+
+    auth_response = requests.post(
+        f"{urls.base_url}{urls.login_courier_endpoint}",
+        json={"login": login, "password": password}
+    )
+
+    courier_id = None
+    if auth_response.status_code == 200:
+        courier_id = auth_response.json().get('id')
     else:
-        pytest.fail(f"Не удалось создать курьера! Статус: {response.status_code}, Ответ: {response.text}")
+        pytest.fail(f"Не удалось авторизоваться! Статус: {auth_response.status_code}")
+
+    courier_data = [login, password, first_name, courier_id]
+
+    yield courier_data
+
+    if courier_id:
+        delete_url = f"{urls.base_url}{urls.delete_courier}/{courier_id}"
+        delete_response = requests.delete(
+            delete_url,
+            json={"id": str(courier_id)}
+        )
+
+        assert delete_response.status_code == 200
+
+
+@pytest.fixture
+def delete_courier_after_test():
+    courier_data = {}
+
+    yield courier_data
+
+    if courier_data:
+        login = courier_data.get('login')
+        password = courier_data.get('password')
+
+        if login and password:
+            auth_response = requests.post(
+                f"{urls.base_url}{urls.login_courier_endpoint}",
+                json={"login": login, "password": password}
+            )
+
+            if auth_response.status_code == 200:
+                courier_id = auth_response.json().get('id')
+
+                if courier_id:
+                    delete_response = requests.delete(
+                        f"{urls.base_url}{urls.delete_courier}/{courier_id}"
+                    )
+                    if delete_response.status_code == 200:
+                        print(f"Курьер {login} успешно удалён")
+                    else:
+                        print(f"Не удалось удалить курьера {login}. Статус: {delete_response.status_code}")
+                else:
+                    print(f"ID не получен для курьера {login}")
+            else:
+                print(f"Не удалось авторизоваться для удаления курьера {login}")
