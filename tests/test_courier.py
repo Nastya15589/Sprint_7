@@ -19,6 +19,9 @@ class TestCourierCreate:
             }
             allure.attach(str(payload), "Данные курьера", allure.attachment_type.JSON)
 
+            delete_courier_after_test['login'] = payload['login']
+            delete_courier_after_test['password'] = payload['password']
+
         with allure.step('Выполнение POST запроса к /api/v1/courier'):
             courier_api = CCA()
             response = courier_api.create_courier(payload['login'], payload['password'], payload['firstName'])
@@ -166,7 +169,7 @@ class TestLoginCourier:
 
     @allure.title('Попытка авторизации незарегистрированного курьера')
     @allure.description('Попытка авторизации незарегистрированного курьера')
-    def test_login_courier_not_register_error(self, delete_courier_after_test):
+    def test_login_courier_not_register_error(self):
         with allure.step('Успешное создание нового курьера'):
             test_data = h.generate_random_word(10)
             allure.attach(f'Данные курьера {test_data}', "Данные созданного курьера", allure.attachment_type.TEXT)
