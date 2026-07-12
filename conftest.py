@@ -77,11 +77,3 @@ def delete_courier_after_test():
                     delete_response = requests.delete(
                         f"{urls.base_url}{urls.delete_courier}/{courier_id}"
                     )
-                    if delete_response.status_code == 200:
-                        print(f"Курьер {login} успешно удалён")
-                    else:
-                        print(f"Не удалось удалить курьера {login}. Статус: {delete_response.status_code}")
-                else:
-                    print(f"ID не получен для курьера {login}")
-            else:
-                print(f"Не удалось авторизоваться для удаления курьера {login}")
