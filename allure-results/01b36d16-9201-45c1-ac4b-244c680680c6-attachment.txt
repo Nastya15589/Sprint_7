@@ -1,0 +1,3 @@
+Метод: POST
+URL: /api/v1/courier
+Тело: {'login': 'rvubdntifs', 'password': 'rygivzphds', 'firstName': 'zakfkaloub'}
